@@ -1,0 +1,58 @@
+# ==================== 个人文件/工作日报 ====================
+工作日报/
+
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+*.manifest
+*.spec
+
+# ==================== 环境变量（含 API Key） ====================
+.env
+*.local
+
+# ==================== 数据目录（数据库 & 上传文件，自动生成，删除后可重建） ====================
+data/
+
+# ==================== Node.js / 前端 ====================
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+*.tsbuildinfo
+next-env.d.ts
+
+# ==================== IDE & 编辑器 ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ==================== 日志 ====================
+*.log
+logs/
+
+# ==================== 测试 & 覆盖率 ====================
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==================== 临时调试文件 ====================
+backend/debug_*.py
+backend/test_*.py
+backend/check_*.py
+backend/verify_*.py
+backend/reinit_*.py
