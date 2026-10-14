@@ -4,7 +4,7 @@
 #
 # 说明：
 #   - 单 worker 运行（--workers 1）：避免多进程下 SQLite 并发写锁与内存会话不一致
-#   - 以 www-data 用户运行，便于读写 /opt/smart-cs-assist/data/ 与 backend/users/
+#   - 以 www-data 用户运行，便于读写 /opt/smart-cs-assist/data/
 # ============================================================
 
 [Unit]

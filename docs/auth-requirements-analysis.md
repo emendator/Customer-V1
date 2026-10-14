@@ -462,4 +462,4 @@ def get_scripts(db, company_name, ...):
 6. **超级管理员视角**: 可以看到所有公司的数据（用于全局管理）
 7. **管理员视角**: 只能看到自己公司的数据
 8. **用户视角**: 只能看到自己公司的数据
-9. **初始数据**: init_db 时需要创建默认 super_admin 账号（用户名与初始口令见 app/config.py）
+9. **初始数据**: init_db 时需要创建默认 super_admin 账号（用户名见 app/config.py，初始口令来自 .env 的 SUPER_ADMIN_PASSWORD）

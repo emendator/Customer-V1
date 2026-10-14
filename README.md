@@ -76,6 +76,24 @@
 - Node.js 18+
 - 无需单独安装数据库
 
+### 准备配置文件（必做）
+
+后端配置读取自 `backend/.env`（首次可复制 `backend/.env.example`）。其中**两项必须填写**，否则服务会直接拒绝启动：
+
+```bash
+cd backend
+cp .env.example .env        # Windows 可用：copy .env.example .env
+```
+
+然后编辑 `backend/.env`，至少填写这两项：
+
+```ini
+SUPER_ADMIN_PASSWORD=<内置超级管理员的登录口令>
+SUPER_ADMIN_COMPANY_PASSWORD=<该公司的公司数据库密码>
+```
+
+> 源码中不保留任何默认口令；缺少这两项时后端会打印明确原因后退出，避免使用可被猜到的默认密码。
+
 ### 方式一：Windows 一键启动
 
 双击项目根目录的 **`启动.bat`**：自动检测 Python / Node.js → 生成 `backend/.env`（若不存在）→ 安装依赖并初始化数据库 → 分别启动后端（8002）与前端（5175）→ 健康检查通过后自动打开浏览器。关闭两个命令行窗口即可停止服务。
@@ -110,7 +128,7 @@ npm run dev        # http://localhost:5175，/api 自动代理到 8002
 3. 正式使用：用邀请码注册 → 填写「公司名称 + 公司密码」（创建新公司或加入已有公司）→ 进入工作台；
 4. 配置 AI（可选）：右上角用户名 →「API Key 配置」，填入大模型平台签发的 Key。
 
-> ⚠️ 系统首次启动会自动创建内置超级管理员账号，其用户名与初始口令在 `backend/app/config.py` 中定义。**请在首次部署前将其修改为强口令**，不要沿用仓库中的初始值。
+> ⚠️ 系统首次启动会自动创建内置超级管理员账号，其登录口令来自 `backend/.env` 的 `SUPER_ADMIN_PASSWORD`（源码中**不含任何默认口令**）。**启动前必须先设置该项**，缺失时服务会拒绝启动。修改账号信息与口令的方法见下方「如何修改最高级管理员的信息」。
 
 ## 配置说明
 
@@ -120,13 +138,14 @@ npm run dev        # http://localhost:5175，/api 自动代理到 8002
 | ------ | ------ |
 | `LLM_BASE_URL` | 大模型 OpenAI 兼容接口地址，默认 `https://api.deepseek.com` |
 | `LLM_MODEL` | 模型名，`.env.example` 示例值为 `deepseek-v4-flash` |
+| `SUPER_ADMIN_PASSWORD` | **必填**。内置超级管理员的登录口令；源码中不保留默认值，缺失时服务拒绝启动 |
 | `ADMIN_API_KEY` | 可选。仅在内置超级管理员首次创建时写入一次；留空则不预置 |
 | `HOST` / `PORT` | 后端监听地址与端口，默认 `0.0.0.0` / `8002` |
 | `DEBUG` | 调试开关，默认 `true` |
 | `DATABASE_URL` | 留空则使用默认的 `data/smart_cs.db` |
 | `DATA_DIR` | 数据目录，默认为项目根目录下的 `data/` |
 | `SECRET_KEY` | 凭据加密与 JWT 签名密钥。不设置时系统会自动生成随机密钥并保存到 `data/secret.key`（请勿删除；更换后历史加密的 API Key 需重新配置） |
-| `SUPER_ADMIN_COMPANY_PASSWORD` | 内置超级管理员所属公司的初始公司密码 |
+| `SUPER_ADMIN_COMPANY_PASSWORD` | **必填**。内置管理员所属公司的「公司数据库密码」（其他账号加入该公司时校验）；缺失时服务拒绝启动 |
 | `SQLITE_TIMEOUT` | SQLite 超时时间（秒），默认 30 |
 
 > 各账号的 API Key 按账号加密存储在数据库中，**不通过 `.env` 配置**，也不随仓库分发。
@@ -152,6 +171,32 @@ npm run dev        # http://localhost:5175，/api 自动代理到 8002
 | 管理员 | 一级邀请码注册 | 本公司增删改查 | ✅ 本公司 | ✅ 本公司 | ✅ 自己邀请的账号 |
 | 普通用户 | 二级邀请码注册 | 查看；新增/编辑需审核 | 只读 | ❌ | ❌ |
 | 游客 | 登录页一键进入 | 临时数据增删改查 | ✅ | ❌ | ❌ |
+
+## 如何修改最高级管理员的信息
+
+内置超级管理员（用户名 `admin`）的信息分三类，改动位置与生效方式不同：
+
+| 要改的内容 | 改哪里 | 生效方式 |
+| ------ | ------ | ------ |
+| 用户名 / 所属公司 / 邮箱 | `backend/app/config.py` 的 `SUPER_ADMIN_USERNAME`、`SUPER_ADMIN_COMPANY`、`SUPER_ADMIN_EMAIL` | 改完重启后端即可：启动时会把内置管理员记录校正为这三项（不影响业务数据） |
+| 登录口令 | `backend/.env` 的 `SUPER_ADMIN_PASSWORD` | 仅在**首次创建**、或**库中口令为空**时写入；已设置过的口令不会被自动覆盖（见下） |
+| 公司数据库密码 | `backend/.env` 的 `SUPER_ADMIN_COMPANY_PASSWORD`，或登录后进入「用户管理 → 公司数据库密码」 | 前者仅在未设置时写入初始值；后者可随时修改，改后该公司所有账号同步生效 |
+
+### 修改登录口令（账号已存在时）
+
+为保证"启动时不覆盖你已经改好的口令"，系统不会用 `.env` 中的值自动覆盖库中已有的口令。要主动切换口令，请用下面的命令，把该账号的口令按 `.env` 中的新值直接重写（`users.password_hash` 是 NOT NULL 列，不能置空）：
+
+1. 修改 `backend/.env` 中的 `SUPER_ADMIN_PASSWORD`；
+2. 执行下面的命令（它会读取 `.env` 中的新口令并写入数据库）；
+3. 用新口令登录（无需重启后端）。
+
+```bash
+cd backend
+# 数据库默认位于项目根目录 data/ ；若改过 DATA_DIR / DATABASE_URL，请相应调整路径
+python -c "import sqlite3;from app.auth import get_password_hash;from app.config import SUPER_ADMIN_PASSWORD;c=sqlite3.connect('../data/smart_cs.db');c.execute('update users set password_hash=? where username=?',(get_password_hash(SUPER_ADMIN_PASSWORD),'admin',));c.commit();print('password updated')"
+```
+
+> 内置管理员不能在界面上删除。删除整个 `data/` 目录后重启会重建干净骨架（含新的内置管理员），但原有业务数据会一并丢失。
 
 ## 项目结构
 

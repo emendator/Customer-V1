@@ -76,6 +76,13 @@ if [ ! -f "$BACKEND_DIR/.env" ]; then
     cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
     echo "  已生成 backend/.env（可后续修改 LLM 配置）"
 fi
+# 必填项校验：源码中不保留任何默认口令，缺失时直接中止部署
+if ! grep -qE "^SUPER_ADMIN_PASSWORD=.+" "$BACKEND_DIR/.env" || ! grep -qE "^SUPER_ADMIN_COMPANY_PASSWORD=.+" "$BACKEND_DIR/.env"; then
+    echo "[ERROR] 请在 $BACKEND_DIR/.env 中填写以下必填项后重新运行本脚本："
+    echo "        SUPER_ADMIN_PASSWORD=<内置超级管理员的登录口令>"
+    echo "        SUPER_ADMIN_COMPANY_PASSWORD=<该公司数据库密码>"
+    exit 1
+fi
 .venv/bin/python init_db.py || echo "  ⚠️ 数据库初始化出现异常，请检查上方日志"
 
 # ---------- 4. 前端构建 ----------
@@ -129,9 +136,9 @@ echo "  ✅ 部署完成！"
 echo "------------------------------------------------------------"
 echo "  访问地址:      $ACCESS_URL"
 echo "  登录账号:      admin"
-echo "  初始口令:      见 backend/app/config.py（部署后请立即修改）"
+echo "  初始口令:      取自 backend/.env 的 SUPER_ADMIN_PASSWORD（部署前必须先设置）"
 echo "  公司名:        我的公司"
-echo "  公司数据库密码: 见 backend/app/config.py（登录后可在「用户管理」中修改）"
+echo "  公司数据库密码: 取自 backend/.env 的 SUPER_ADMIN_COMPANY_PASSWORD（登录后可在「用户管理」中修改）"
 echo ""
 echo "  常用命令:"
 echo "    查看后端日志:  journalctl -u $SERVICE_NAME -f"

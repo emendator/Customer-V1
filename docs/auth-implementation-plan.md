@@ -258,7 +258,7 @@ app.include_router(pending.router)
 
 在初始化数据库中：
 
-1. 创建默认 super_admin 用户（用户名与初始口令见 app/config.py）
+1. 创建默认 super_admin 用户（用户名见 app/config.py，初始口令来自 .env 的 SUPER_ADMIN_PASSWORD）
 2. 设置 company_name = "我的公司"
 3. 确保数据表创建顺序正确
 
@@ -529,7 +529,7 @@ UI 设计要点：
 1. 创建 users 表、invitation_codes 表、pending_scripts 表
 2. 创建默认 super_admin 用户：
    - username: admin
-   - password: 初始口令（见 app/config.py，bcrypt 加密）
+   - password: 初始口令（来自 .env 的 SUPER_ADMIN_PASSWORD，bcrypt 加密）
    - role: super_admin
    - company_name: 我的公司
    - is_active: True

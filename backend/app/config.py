@@ -22,14 +22,30 @@ _db_path = os.path.join(DATA_DIR, "smart_cs.db")
 _default_db_url = f"sqlite:///{_db_path}"
 DATABASE_URL = os.getenv("DATABASE_URL") or _default_db_url
 
-# ===== 超级管理员账号（永久固定，每次重建都使用该信息，不可修改） =====
+# ===== 超级管理员账号 =====
+# 用户名 / 所属公司 / 邮箱为内置固定信息：启动时会把内置管理员记录校正为这三项。
 SUPER_ADMIN_USERNAME = "admin"
-SUPER_ADMIN_PASSWORD = "123456"
 SUPER_ADMIN_COMPANY = "我的公司"
 SUPER_ADMIN_EMAIL = "admin@my.com"
-# 超级管理员公司数据库密码（初始值；仅在 admin 未设置公司数据库密码时写入，
-# admin 后续可在「用户管理 → 公司数据库密码」中自行修改）
-SUPER_ADMIN_COMPANY_PASSWORD = os.getenv("SUPER_ADMIN_COMPANY_PASSWORD", "123abc")
+
+
+def _require_env(name: str) -> str:
+    """读取必填环境变量；缺失时直接报错，避免退回到可被猜到的默认口令。"""
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(
+            f"缺少必需的环境变量 {name}：请在 backend/.env 中设置后重新启动"
+            f"（可复制 backend/.env.example 作为模板）。"
+        )
+    return value
+
+
+# 登录口令：只由环境变量注入，源码中不保留任何默认值。
+# 仅在首次创建内置管理员、或库中口令为空时写入；已设置过的口令不会被覆盖。
+SUPER_ADMIN_PASSWORD = _require_env("SUPER_ADMIN_PASSWORD")
+# 内置管理员所属公司的「公司数据库密码」：同样只由环境变量注入，
+# 仅在未设置时写入；管理员后续可在「用户管理 → 公司数据库密码」中自行修改。
+SUPER_ADMIN_COMPANY_PASSWORD = _require_env("SUPER_ADMIN_COMPANY_PASSWORD")
 
 # SQLite 连接池配置（防止并发写入锁死）
 SQLITE_TIMEOUT = int(os.getenv("SQLITE_TIMEOUT", "30"))

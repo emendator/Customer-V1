@@ -77,6 +77,24 @@ Typical use cases: after-sales support on e-commerce or messaging channels, main
 - Node.js 18+
 - No separate database installation
 
+### Prepare the configuration (mandatory)
+
+Backend settings are read from `backend/.env` (copy `backend/.env.example` for a first run). **Two values are required** — without them the service refuses to start:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Then edit `backend/.env` and fill in at least:
+
+```ini
+SUPER_ADMIN_PASSWORD=<login password for the built-in super admin>
+SUPER_ADMIN_COMPANY_PASSWORD=<company password of that company>
+```
+
+> No default password is shipped in the source: if either value is missing, the backend exits with an explicit error instead of falling back to a guessable default.
+
 ### Option 1: one-click start on Windows
 
 Double-click **`启动.bat`** in the project root. It checks for Python / Node.js, creates `backend/.env` if missing, installs dependencies, initializes the database, starts the backend (8002) and the frontend (5175), and opens the browser once the health check passes. Close the two console windows to stop the services.
@@ -111,7 +129,7 @@ Production build: `npm run build` (output in `frontend/dist/`). Interactive API 
 3. For real use, register with an invite code → fill in the company name and company password (create a new company or join an existing one) → enter the workbench;
 4. Optional AI setup: click your username in the top-right corner → **API Key** → paste a key issued by your model provider.
 
-> ⚠️ On first start the system creates a built-in super-admin account; its username and initial password are defined in `backend/app/config.py`. **Change that initial password before deploying anywhere** — do not keep the value shipped in the repository.
+> ⚠️ On first start the system creates a built-in super-admin account. Its login password comes from `SUPER_ADMIN_PASSWORD` in `backend/.env` — **no default password exists in the source**, and the service refuses to start when the variable is missing. See "Changing the super-admin account" below for how to change the account details later.
 
 ## Configuration
 
@@ -121,13 +139,14 @@ Configuration lives in `backend/.env` (copy it from `backend/.env.example`; the 
 | ------ | ------ |
 | `LLM_BASE_URL` | OpenAI-compatible endpoint, default `https://api.deepseek.com` |
 | `LLM_MODEL` | Model name; the example value in `.env.example` is `deepseek-v4-flash` |
+| `SUPER_ADMIN_PASSWORD` | **Required.** Login password of the built-in super admin. No default exists in the source; the service refuses to start without it |
 | `ADMIN_API_KEY` | Optional. Written once when the built-in super admin is first created; leave empty to skip |
 | `HOST` / `PORT` | Backend bind address and port, default `0.0.0.0` / `8002` |
 | `DEBUG` | Debug switch, default `true` |
 | `DATABASE_URL` | Leave empty to use the default `data/smart_cs.db` |
 | `DATA_DIR` | Data directory, defaults to `data/` in the project root |
 | `SECRET_KEY` | Key used for credential encryption and JWT signing. When unset, a random key is generated and saved to `data/secret.key` (do not delete it; after changing it, previously encrypted API keys must be reconfigured) |
-| `SUPER_ADMIN_COMPANY_PASSWORD` | Initial company password of the built-in super admin's company |
+| `SUPER_ADMIN_COMPANY_PASSWORD` | **Required.** Company password of the built-in super admin's company (verified when other accounts join it); the service refuses to start without it |
 | `SQLITE_TIMEOUT` | SQLite timeout in seconds, default 30 |
 
 > Per-account API keys are stored encrypted in the database — they are **not** configured through `.env` and are never shipped with the repository.
@@ -153,6 +172,32 @@ Configuration lives in `backend/.env` (copy it from `backend/.env.example`; the 
 | Admin | Registered with a level-1 invite code | CRUD within own company | ✅ own company | ✅ own company | ✅ accounts they invited |
 | User | Registered with a level-2 invite code | Read; create/edit requires review | Read-only | ❌ | ❌ |
 | Guest | One-click guest login | CRUD on temporary data | ✅ | ❌ | ❌ |
+
+## Changing the super-admin account
+
+The built-in super admin (username `admin`) has three kinds of settings, changed in different places:
+
+| What to change | Where | How it takes effect |
+| ------ | ------ | ------ |
+| Username / company / email | `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_COMPANY`, `SUPER_ADMIN_EMAIL` in `backend/app/config.py` | Restart the backend: on startup the built-in admin record is corrected to these three values (business data is untouched) |
+| Login password | `SUPER_ADMIN_PASSWORD` in `backend/.env` | Written only on **first creation** or when **the stored password is empty**; an existing password is never overwritten (see below) |
+| Company password | `SUPER_ADMIN_COMPANY_PASSWORD` in `backend/.env`, or "Users → Company password" in the UI | The env value seeds it when unset; the UI can change it at any time and applies to the whole company |
+
+### Changing the login password (account already exists)
+
+So that a password you changed is never overwritten on startup, the app does not automatically replace an existing password with the `.env` value. To switch it deliberately, run the command below: it rewrites the stored hash from the new `.env` value (`users.password_hash` is a NOT NULL column, so it cannot be cleared):
+
+1. Edit `SUPER_ADMIN_PASSWORD` in `backend/.env`;
+2. Run the command below (it reads the new password from `.env` and writes it to the database);
+3. Sign in with the new password — no restart needed.
+
+```bash
+cd backend
+# The database lives in data/ at the project root by default; adjust the path if you changed DATA_DIR / DATABASE_URL
+python -c "import sqlite3;from app.auth import get_password_hash;from app.config import SUPER_ADMIN_PASSWORD;c=sqlite3.connect('../data/smart_cs.db');c.execute('update users set password_hash=? where username=?',(get_password_hash(SUPER_ADMIN_PASSWORD),'admin',));c.commit();print('password updated')"
+```
+
+> The built-in admin cannot be deleted from the UI. Deleting the whole `data/` directory and restarting rebuilds a clean skeleton (including a new built-in admin), but all existing business data is lost.
 
 ## Project Structure
 

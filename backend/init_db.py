@@ -5,9 +5,18 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
+# 控制台编码不是 UTF-8 时（例如 Windows GBK 代码页），emoji/中文打印可能抛 UnicodeEncodeError。
+# 一旦抛出会被下面的 except 捕获并回滚事务，导致管理员信息校正"看起来执行了却没生效"，
+# 因此这里把输出流设置为遇到无法编码的字符时替换，而不是抛异常。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
+
 from app.database import init_db, SessionLocal
 from app.models import Category, User
-from app.auth import get_password_hash, verify_password
+from app.auth import get_password_hash
 from app.config import (
     SUPER_ADMIN_USERNAME, SUPER_ADMIN_PASSWORD,
     SUPER_ADMIN_COMPANY, SUPER_ADMIN_EMAIL,
@@ -18,9 +27,10 @@ from app.utils.crypto import encrypt_api_key
 
 def ensure_super_admin(db):
     """
-    确保超级管理员账号存在，且账号信息与固定配置完全一致（永久固定，不可改变）。
-    - 不存在：按固定信息创建（用户名与初始口令见 app/config.py，公司为「我的公司」）
-    - 存在但信息被改动：自动校正回固定信息
+    确保超级管理员账号存在。
+    - 不存在：按固定信息创建（登录口令来自环境变量 SUPER_ADMIN_PASSWORD）
+    - 已存在：仅把 角色 / 所属公司 / 邮箱 校正回固定信息；
+      登录口令不做回写（仅在库中口令为空时补写一次），公司数据库密码同理
     """
     admin = db.query(User).filter(User.username == SUPER_ADMIN_USERNAME).first()
     if admin is None:
@@ -39,7 +49,7 @@ def ensure_super_admin(db):
         db.add(admin)
         db.flush()
         api_note = "已配置 ADMIN_API_KEY" if admin_api_key else "未配置初始 API Key"
-        print(f"✅ 已创建超级管理员（{SUPER_ADMIN_USERNAME} / <初始口令见 app/config.py>，{api_note}）")
+        print(f"✅ 已创建超级管理员（{SUPER_ADMIN_USERNAME}，口令取自环境变量 SUPER_ADMIN_PASSWORD；{api_note}）")
         return
 
     # 已存在：校正为固定信息，确保不可改变
@@ -47,9 +57,10 @@ def ensure_super_admin(db):
     if admin.role != "super_admin":
         admin.role = "super_admin"
         changes.append("角色")
-    if not admin.password_hash or not verify_password(SUPER_ADMIN_PASSWORD, admin.password_hash):
+    # 登录口令不做回写：仅在库中口令完全为空（无法登录）时，用环境变量补写一次
+    if not admin.password_hash:
         admin.password_hash = get_password_hash(SUPER_ADMIN_PASSWORD)
-        changes.append("密码")
+        changes.append("密码(初始化)")
     if admin.company_name != SUPER_ADMIN_COMPANY:
         admin.company_name = SUPER_ADMIN_COMPANY
         changes.append("所属公司")
@@ -105,7 +116,7 @@ DEFAULT_CATEGORIES = [
 def init_default_data():
     db = SessionLocal()
     try:
-        # ===== 确保超级管理员存在且信息固定（用户名与初始口令见 app/config.py） =====
+        # ===== 确保超级管理员存在且信息固定（用户名/公司/邮箱见 app/config.py，口令见 .env） =====
         ensure_super_admin(db)
 
         # ===== 创建/补充默认分类（始终增量，永不删除已有数据） =====
